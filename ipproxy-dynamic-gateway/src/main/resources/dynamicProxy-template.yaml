@@ -1,0 +1,102 @@
+# Dynamic Proxy Gateway 配置模板
+# 使用方式:
+# 1) 首次执行: java -jar gateway.jar --init
+# 2) 正式启动: java -jar gateway.jar --config ./dynamicProxy.yaml
+
+# =========================
+# Gateway 基础配置
+# =========================
+# 网关主机名（必填），用于白名单配置拉取与流量上报标识。
+gatewayHostname: ""
+# 监听地址，默认监听所有网卡。
+listenHost: "0.0.0.0"
+# SOCKS5 服务监听端口。
+listenSocks5Port: 8088
+# HTTP 代理服务监听端口。
+listenHttpPort: 8089
+# Netty boss 线程数。
+listenThread: 1
+# 是否开启 debug 日志。
+logDebug: false
+
+# =========================
+# 超时配置（毫秒）
+# =========================
+# 【网关监听端口】TCP 建连超时（客户端连接到网关）。
+connTimeout: 15000
+# 【网关监听端口】读超时（客户端 -> 网关）。
+readTimeout: 30000
+# 【网关监听端口】写超时（网关 -> 客户端）。
+writeTimeout: 30000
+# 【转发连接】上游代理读超时。0 表示不检测。
+forwardReadTimeout: 30000
+# 【转发连接】上游代理写超时。0 表示不检测。
+forwardWriteTimeout: 30000
+# 【网关监听端口】读空闲超时。0 表示不检测（网关 -> 客户端）。
+# readIdleTimeout: 0
+# 【网关监听端口】写空闲超时。0 表示不检测（客户端 -> 网关）。
+# writeIdleTimeout: 0
+# 【转发连接】网关到上游代理 TCP 建连超时。
+forwardConnTimeout: 1500
+# 【转发连接】目标地址 DNS 解析位置。false=网关本机解析（默认）；true=由上游 SOCKS5 代理解析（等同 curl --socks5-hostname）。
+# dnsRemote: false
+# 【转发连接】供应商上游代理 hostname DNS 缓存。false=JVM 默认 DNS 行为（默认）；true=供应商为域名时每次转发重新解析。
+# disableSupplierDnsCache: false
+
+# =========================
+# API 配置
+# =========================
+# 管理端 API 地址（必填）。
+endpoint: ""
+# 管理端 API Token（必填）。
+token: ""
+# 动态配置拉取间隔（秒）。
+configUpdateInterval: 60
+# 流量上报间隔（秒）。
+trafficReportInterval: 30
+# 资源使用观测日志间隔（秒）。60 表示每分钟输出一次；0 表示关闭。
+resourceUsageLogIntervalSec: 60
+# 是否读取本地模拟配置（true 时不走远程 API）。
+localConfigFile: false
+
+# =========================
+# 会话与缓存配置
+# =========================
+# 粘性会话缓存最大数量。
+maxSessionSize: 50000
+# 会话过期检查间隔（秒）。
+sessionExpireCheckInterval: 30
+
+# =========================
+# 白名单端口范围配置
+# =========================
+# 白名单路由端口起始值。
+whiteListPortRangeStart: 20000
+# 白名单路由端口结束值。
+whiteListPortRangeEnd: 22000
+
+# =========================
+# 性能调优配置
+# =========================
+# 共享的 Netty worker / forwarder 线程数。默认 0 表示由 Netty 自动设置（2 * CPU cores）。
+# workerThreads: 0
+# TCP accept 连接队列长度（SO_BACKLOG）。默认 128。
+# backLog: 128
+# HTTP 请求头最大尺寸（字节）。默认 32KB(32768)，同时约束 CONNECT 头部大小。
+# httpRequestHeaderMaxSize: 32768
+# HTTP 消息聚合器最大尺寸（字节）。默认 5MB(5242880)。
+# httpObjectAggregatorSize: 5242880
+# 写缓冲低水位（字节）。默认 16KB，用于恢复读取。
+# writeBufferLowWaterMark: 16384
+# 写缓冲高水位（字节）。默认 32KB，用于触发背压暂停读取。
+# writeBufferHighWaterMark: 32768
+# 单个认证用户允许的最大并发转发连接数。默认 500；设置为 0 表示关闭限制。
+# userMaxConcurrentConnections: 500
+
+# =========================
+# 高级可选配置（不设置即不生效）
+# =========================
+# 偏好出口地区。仅在供应商 gateway 配置带地区前缀时生效。
+# preferenceEndpointArea: ""
+# 本地区域映射文件路径。未设置时使用内置 areaMapping.csv。
+# localAreaMappingFile: ""

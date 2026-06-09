@@ -1,0 +1,41 @@
+package com.dk.ipproxy.dynamic.gateway.constants;
+
+public class CmdArgs {
+    public static final String INIT = "init";
+    public static final String CONFIG = "config";
+    public static final String GATEWAY_HOSTNAME = "gatewayHostname";
+    public static final String ENDPOINT = "endpoint";
+    public static final String API_TOKEN = "token";
+    public static final String LISTEN_HOST = "listenHost";
+    public static final String LISTEN_SOCKS5_PORT = "listenSocks5Port";
+    public static final String LISTEN_HTTP_PORT = "listenHttpPort";
+    public static final String LISTEN_THREAD = "listenThread";
+    public static final String FORWARD_CONNECT_TIMEOUT = "forwardConnTimeout";
+    public static final String CONN_TIMEOUT = "connTimeout";
+    public static final String READ_TIMEOUT = "readTimeout";
+    public static final String WRITE_TIMEOUT = "writeTimeout";
+    public static final String FORWARD_READ_TIMEOUT = "forwardReadTimeout";
+    public static final String FORWARD_WRITE_TIMEOUT = "forwardWriteTimeout";
+    public static final String READ_IDLE_TIMEOUT = "readIdleTimeout";
+    public static final String WRITE_IDLE_TIMEOUT = "writeIdleTimeout";
+    public static final String CONFIG_UPDATE_INTERVAL = "configUpdateInterval";
+    public static final String TRAFFIC_REPORT_INTERVAL = "trafficReportInterval";
+    public static final String RESOURCE_USAGE_LOG_INTERVAL = "resourceUsageLogIntervalSec";
+    public static final String LOCAL_CONFIG_FILE = "localConfigFile";
+    public static final String LOG_DEBUG = "logDebug";
+    public static final String MAX_SESSION_SIZE = "maxSessionSize";
+    public static final String SESSION_EXPIRE_CHECK_INTERVAL = "sessionExpireCheckInterval";
+    public static final String PREFERENCE_ENDPOINT_AREA = "preferenceEndpointArea";
+    public static final String LOCAL_AREA_MAPPING_FILE = "localAreaMappingFile";
+    public static final String WHITE_LIST_PORT_RANGE_START = "whiteListPortRangeStart";
+    public static final String WHITE_LIST_PORT_RANGE_END = "whiteListPortRangeEnd";
+    public static final String WORKER_THREADS = "workerThreads";
+    public static final String BACK_LOG = "backLog";
+    public static final String HTTP_OBJECT_AGGREGATOR_SIZE = "httpObjectAggregatorSize";
+    public static final String HTTP_REQUEST_HEADER_MAX_SIZE = "httpRequestHeaderMaxSize";
+    public static final String WRITE_BUFFER_LOW_WATER_MARK = "writeBufferLowWaterMark";
+    public static final String WRITE_BUFFER_HIGH_WATER_MARK = "writeBufferHighWaterMark";
+    public static final String USER_MAX_CONCURRENT_CONNECTIONS = "userMaxConcurrentConnections";
+    public static final String DNS_REMOTE = "dnsRemote";
+    public static final String DISABLE_SUPPLIER_DNS_CACHE = "disableSupplierDnsCache";
+}
