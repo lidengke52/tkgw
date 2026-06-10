@@ -37,6 +37,13 @@ go build -o gateway-go ./cmd/gateway
 ./gateway-go --config ./dynamicProxy.yaml
 ```
 
+## 文档
+
+- [架构说明](./docs/Architecture.zh-CN.md)
+- [使用说明](./docs/Usage.zh-CN.md)
+- [性能调优指南](./docs/PerformanceTuning.zh-CN.md)
+- [运维手册](./docs/Operations.zh-CN.md)
+
 ## 融合池城市定位测试页
 
 如果需要批量验证 SOCKS5 出口 IP 的城市定位，可以启动内置测试页：
