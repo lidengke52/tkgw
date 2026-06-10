@@ -33,6 +33,7 @@ type Config struct {
 	LocalConfigFile                   bool
 	MaxSessionSize                    int
 	TrafficReportInterval             time.Duration
+	TrafficReportSpoolFile            string
 	ResourceUsageLogInterval          time.Duration
 	SessionExpireCheckInterval        time.Duration
 	SessionAffinityMode               string
@@ -72,6 +73,7 @@ func Default() Config {
 		ConfigUpdateInterval:              60 * time.Second,
 		MaxSessionSize:                    50000,
 		TrafficReportInterval:             30 * time.Second,
+		TrafficReportSpoolFile:            "traffic-report-spool.jsonl",
 		ResourceUsageLogInterval:          60 * time.Second,
 		SessionExpireCheckInterval:        30 * time.Second,
 		SessionAffinityMode:               "cache",
@@ -206,6 +208,7 @@ func applyValues(c *Config, v map[string]string) {
 	setString("listenHost", &c.ListenHost)
 	setString("endpoint", &c.Endpoint)
 	setString("token", &c.Token)
+	setString("trafficReportSpoolFile", &c.TrafficReportSpoolFile)
 	setString("preferenceEndpointArea", &c.PreferenceEndpointArea)
 	setString("localAreaMappingFile", &c.LocalAreaMappingFile)
 	setString("sessionAffinityMode", &c.SessionAffinityMode)

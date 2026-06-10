@@ -27,7 +27,7 @@ func main() {
 	}
 	store := dynamic.NewStore(cfg)
 	store.Run()
-	collector := stats.New(cfg.Endpoint, cfg.Token, cfg.GatewayHostname)
+	collector := stats.New(cfg.Endpoint, cfg.Token, cfg.GatewayHostname, cfg.TrafficReportSpoolFile)
 	go collector.Run(cfg.TrafficReportInterval)
 	go resource.Run(cfg.ResourceUsageLogInterval, collector)
 	ipf := filter.NewIPFilter("")
@@ -48,6 +48,7 @@ func main() {
 	select {
 	case sig := <-sigCh:
 		log.Printf("shutdown signal: %s", sig)
+		collector.ReportNow()
 	case err := <-errCh:
 		if err != nil && !errors.Is(err, net.ErrClosed) && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("server error: %v", err)

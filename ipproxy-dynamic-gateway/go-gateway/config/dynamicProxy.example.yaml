@@ -46,6 +46,8 @@ endpoint: "https://api.gzyuyun.com"
 token: ""
 configUpdateInterval: 180
 trafficReportInterval: 30
+# 上报失败时写入本地队列，下次启动/下一轮上报优先补发；留空表示关闭本地队列。
+trafficReportSpoolFile: "traffic-report-spool.jsonl"
 resourceUsageLogIntervalSec: 60
 localConfigFile: false
 

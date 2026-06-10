@@ -121,6 +121,14 @@ supplierId + endpoint + country
 
 供应商故障时，该供应商入口会从健康候选中排除；相关 session 下次会落到 rendezvous 排名里的下一个健康候选。供应商恢复后不会主动重排已存在 session，避免出口 IP 来回漂移。
 
+## 流量统计可靠性
+
+流量按用户 `uid` 聚合，上报字段为 `upLink` 和 `downLink`。SOCKS5、HTTP CONNECT、白名单隧道都按实际双向转发字节数统计；普通 HTTP 请求体也按实际读取字节数统计，支持 chunked 或未知长度 body。
+
+`trafficReportInterval` 控制定时上报周期。上报失败时，Go 版会把本批次写入 `trafficReportSpoolFile` 指定的本地 JSONL 队列，下一轮上报或进程重启后优先补发。
+
+收到 SIGTERM/SIGINT 正常退出时，进程会立即 flush 当前内存统计，尽量避免丢失最后一个上报周期的数据。异常崩溃、机器断电时，已经写入 spool 文件的失败批次可以恢复；仍停留在内存里且尚未 flush 的极短窗口数据无法完全保证，除非把每次字节计数都做同步落盘，这会明显拖慢代理热路径。
+
 ## 推荐验证顺序
 
 1. 先运行 `go fmt ./...` 和 `go build ./cmd/gateway`。

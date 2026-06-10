@@ -4,3 +4,5 @@
 /geo-tester
 .DS_Store
 /config/dynamicProxy.yaml
+/traffic-report-spool.jsonl
+/traffic-report-spool.jsonl.tmp

@@ -151,8 +151,8 @@ func (p *HTTPProxy) handleHTTP(w http.ResponseWriter, r *http.Request, ctx dynam
 	req.Header = r.Header.Clone()
 	req.Header.Del("Proxy-Authorization")
 	req.Header.Del("Proxy-Connection")
-	if r.ContentLength > 0 {
-		p.stats.Sent(ctx.UID, r.ContentLength)
+	if req.Body != nil {
+		req.Body = countingReadCloser{ReadCloser: req.Body, cb: func(n int64) { p.stats.Sent(ctx.UID, n) }}
 	}
 	if p.cfg.ForwardWriteTimeout > 0 {
 		_ = upstream.SetWriteDeadline(time.Now().Add(p.cfg.ForwardWriteTimeout))
@@ -242,4 +242,17 @@ func IdleTimeout(cfg config.Config) time.Duration {
 		return cfg.ReadIdleTimeout
 	}
 	return cfg.WriteIdleTimeout
+}
+
+type countingReadCloser struct {
+	io.ReadCloser
+	cb func(int64)
+}
+
+func (r countingReadCloser) Read(p []byte) (int, error) {
+	n, err := r.ReadCloser.Read(p)
+	if n > 0 && r.cb != nil {
+		r.cb(int64(n))
+	}
+	return n, err
 }
