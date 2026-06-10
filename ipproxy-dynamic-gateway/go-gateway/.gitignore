@@ -1,0 +1,6 @@
+/.gocache/
+/gateway
+/gateway-go
+/geo-tester
+.DS_Store
+/config/dynamicProxy.yaml

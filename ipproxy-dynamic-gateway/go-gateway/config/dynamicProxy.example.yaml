@@ -1,0 +1,111 @@
+# Go Dynamic Proxy Gateway 配置示例
+#
+# 启动:
+#   go run ./cmd/gateway --config ./config/dynamicProxy.yaml
+#
+# 生产建议:
+#   复制本文件为 dynamicProxy.yaml，并填写真实 endpoint/token。
+#   不要把包含真实 token 的 dynamicProxy.yaml 提交到仓库。
+
+# =========================
+# Gateway 基础配置
+# =========================
+gatewayHostname: "162.128.84.205"
+listenHost: "0.0.0.0"
+listenSocks5Port: 29999
+listenHttpPort: 28888
+logDebug: false
+
+# =========================
+# 超时配置（毫秒）
+# =========================
+# 客户端连接到网关的 TCP 建连超时。Go 版兼容读取，主要用于配置一致性。
+connTimeout: 15000
+# 客户端 -> 网关读取超时。
+readTimeout: 30000
+# 网关 -> 客户端写入超时。
+writeTimeout: 30000
+# 网关 -> 上游代理读取超时。0 表示不检测。
+forwardReadTimeout: 30000
+# 网关 -> 上游代理写入超时。0 表示不检测。
+forwardWriteTimeout: 30000
+# HTTP 连接空闲超时。Go 版会取 readIdleTimeout/writeIdleTimeout 中较大的值作为 HTTP IdleTimeout。
+readIdleTimeout: 0
+writeIdleTimeout: 0
+# 网关到上游 SOCKS5 代理 TCP 建连 + 握手超时。
+forwardConnTimeout: 15000
+# true = 目标域名交给上游 SOCKS5 代理解析；false = 网关本机解析。
+dnsRemote: true
+# Go 版目前使用系统 resolver；该项兼容读取。
+disableSupplierDnsCache: false
+
+# =========================
+# API 配置
+# =========================
+endpoint: "https://api.gzyuyun.com"
+token: ""
+configUpdateInterval: 180
+trafficReportInterval: 30
+resourceUsageLogIntervalSec: 60
+localConfigFile: false
+
+# =========================
+# 会话与缓存配置
+# =========================
+maxSessionSize: 50000
+sessionExpireCheckInterval: 30
+# cache = 首次随机分配后写本机缓存；适合单机或 LB 有粘性的部署。
+# deterministic = rendezvous hashing 确定性分配；适合集群 DNS/LB，无需 Redis。
+sessionAffinityMode: "deterministic"
+# false = 供应商恢复后不主动重排已存在 session；旧 session 等过期或失败后自然变化。
+supplierRecoverAffectsExistingSession: false
+
+# =========================
+# 白名单端口范围配置
+# =========================
+whiteListPortRangeStart: 20000
+whiteListPortRangeEnd: 22000
+
+# =========================
+# Go 版性能配置
+# =========================
+# 单个认证用户允许的最大并发转发连接数；0 表示关闭限制。
+userMaxConcurrentConnections: 0
+# HTTP 请求头最大尺寸。
+httpRequestHeaderMaxSize: 32768
+# 普通 HTTP 请求体保护阈值，Go 版普通 HTTP 路径为流式转发，不做 Netty 式整包聚合。
+httpObjectAggregatorSize: 5242880
+
+# =========================
+# 供应商健康检查
+# =========================
+# 被动健康检查：基于真实上游连接结果统计，不主动探测。
+supplierHealthEnabled: true
+# 最近窗口内至少多少样本后，才按失败率熔断。
+supplierHealthMinSamples: 20
+# 最近窗口失败率达到该值后熔断。0.5 = 50%。
+supplierHealthFailureRate: 0.5
+# 连续失败达到该值后直接熔断。
+supplierHealthConsecutiveFailures: 5
+# 熔断冷却时间（秒）。冷却后进入半开，成功数足够后恢复。
+supplierHealthCooldownSec: 60
+# 失败率统计滑动窗口（秒）。
+supplierHealthWindowSec: 60
+
+# =========================
+# Java/Netty 兼容读取项
+# =========================
+# 以下配置 Go 版会读取，但不会按 Netty 的线程模型/写水位语义生效。
+listenThread: 1
+workerThreads: 0
+backLog: 65535
+writeBufferLowWaterMark: 16384
+writeBufferHighWaterMark: 32768
+
+# =========================
+# 高级可选配置
+# =========================
+# 偏好出口地区。仅在供应商 gateway 配置带地区前缀时生效。
+preferenceEndpointArea: ""
+# 本地区域映射文件路径。未设置时使用 ./resources/areaMapping.csv。
+localAreaMappingFile: ""
