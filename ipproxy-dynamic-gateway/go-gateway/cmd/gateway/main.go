@@ -14,6 +14,7 @@ import (
 	"ipproxy-dynamic-gateway-go/internal/config"
 	"ipproxy-dynamic-gateway-go/internal/dynamic"
 	"ipproxy-dynamic-gateway-go/internal/filter"
+	"ipproxy-dynamic-gateway-go/internal/metrics"
 	httpproxy "ipproxy-dynamic-gateway-go/internal/proxy"
 	"ipproxy-dynamic-gateway-go/internal/resource"
 	"ipproxy-dynamic-gateway-go/internal/socks"
@@ -36,6 +37,9 @@ func main() {
 	httpServer := httpproxy.NewHTTPProxy(cfg, store, collector, ipf, nil)
 
 	errCh := make(chan error, 8)
+	if cfg.MetricsEnabled {
+		go func() { errCh <- metrics.New(cfg, store, collector).ListenAndServe() }()
+	}
 	go func() { errCh <- socksServer.ListenAndServe(cfg.Addr(cfg.ListenSocks5Port), nil) }()
 	go func() { errCh <- httpServer.ListenAndServe(cfg.Addr(cfg.ListenHTTPPort)) }()
 	for port := cfg.WhiteListPortRangeStart; port <= cfg.WhiteListPortRangeEnd; port++ {

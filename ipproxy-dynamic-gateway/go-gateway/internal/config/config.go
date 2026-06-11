@@ -30,6 +30,10 @@ type Config struct {
 	Endpoint                          string
 	Token                             string
 	LogDebug                          bool
+	MetricsEnabled                    bool
+	MetricsHost                       string
+	MetricsPort                       int
+	MetricsPath                       string
 	LocalConfigFile                   bool
 	MaxSessionSize                    int
 	TrafficReportInterval             time.Duration
@@ -70,6 +74,10 @@ func Default() Config {
 		WriteTimeout:                      30 * time.Second,
 		ForwardReadTimeout:                30 * time.Second,
 		ForwardWriteTimeout:               30 * time.Second,
+		MetricsEnabled:                    false,
+		MetricsHost:                       "127.0.0.1",
+		MetricsPort:                       19090,
+		MetricsPath:                       "/metrics",
 		ConfigUpdateInterval:              60 * time.Second,
 		MaxSessionSize:                    50000,
 		TrafficReportInterval:             30 * time.Second,
@@ -208,12 +216,15 @@ func applyValues(c *Config, v map[string]string) {
 	setString("listenHost", &c.ListenHost)
 	setString("endpoint", &c.Endpoint)
 	setString("token", &c.Token)
+	setString("metricsHost", &c.MetricsHost)
+	setString("metricsPath", &c.MetricsPath)
 	setString("trafficReportSpoolFile", &c.TrafficReportSpoolFile)
 	setString("preferenceEndpointArea", &c.PreferenceEndpointArea)
 	setString("localAreaMappingFile", &c.LocalAreaMappingFile)
 	setString("sessionAffinityMode", &c.SessionAffinityMode)
 	setInt("listenSocks5Port", &c.ListenSocks5Port)
 	setInt("listenHttpPort", &c.ListenHTTPPort)
+	setInt("metricsPort", &c.MetricsPort)
 	setInt("listenThread", &c.ListenThreads)
 	setInt("workerThreads", &c.WorkerThreads)
 	setInt("backLog", &c.BackLog)
@@ -239,6 +250,7 @@ func applyValues(c *Config, v map[string]string) {
 	setSeconds("sessionExpireCheckInterval", &c.SessionExpireCheckInterval)
 	setBool("localConfigFile", &c.LocalConfigFile)
 	setBool("logDebug", &c.LogDebug)
+	setBool("metricsEnabled", &c.MetricsEnabled)
 	setBool("dnsRemote", &c.DNSRemote)
 	setBool("disableSupplierDnsCache", &c.DisableSupplierDNSCache)
 	setBool("supplierHealthEnabled", &c.SupplierHealthEnabled)

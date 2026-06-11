@@ -15,11 +15,16 @@ import (
 )
 
 type counters struct {
-	sent    atomic.Int64
-	recv    atomic.Int64
-	total   atomic.Int64
-	success atomic.Int64
-	fail    atomic.Int64
+	sent        atomic.Int64
+	recv        atomic.Int64
+	total       atomic.Int64
+	success     atomic.Int64
+	fail        atomic.Int64
+	lifeSent    atomic.Int64
+	lifeRecv    atomic.Int64
+	lifeTotal   atomic.Int64
+	lifeSuccess atomic.Int64
+	lifeFail    atomic.Int64
 }
 
 type UserTraffic struct {
@@ -82,15 +87,66 @@ func (c *Collector) get(uid int) *counters {
 	return cc
 }
 
-func (c *Collector) Sent(uid int, n int64) { c.get(uid).sent.Add(n) }
-func (c *Collector) Recv(uid int, n int64) { c.get(uid).recv.Add(n) }
-func (c *Collector) Total(uid int)         { c.get(uid).total.Add(1) }
-func (c *Collector) Success(uid int)       { c.get(uid).success.Add(1) }
-func (c *Collector) Fail(uid int)          { c.get(uid).fail.Add(1) }
-func (c *Collector) ConnOpen()             { c.active.Add(1) }
-func (c *Collector) ConnClose()            { c.active.Add(-1) }
+func (c *Collector) Sent(uid int, n int64) {
+	cc := c.get(uid)
+	cc.sent.Add(n)
+	cc.lifeSent.Add(n)
+}
+func (c *Collector) Recv(uid int, n int64) {
+	cc := c.get(uid)
+	cc.recv.Add(n)
+	cc.lifeRecv.Add(n)
+}
+func (c *Collector) Total(uid int) {
+	cc := c.get(uid)
+	cc.total.Add(1)
+	cc.lifeTotal.Add(1)
+}
+func (c *Collector) Success(uid int) {
+	cc := c.get(uid)
+	cc.success.Add(1)
+	cc.lifeSuccess.Add(1)
+}
+func (c *Collector) Fail(uid int) {
+	cc := c.get(uid)
+	cc.fail.Add(1)
+	cc.lifeFail.Add(1)
+}
+func (c *Collector) ConnOpen()  { c.active.Add(1) }
+func (c *Collector) ConnClose() { c.active.Add(-1) }
 func (c *Collector) ActiveConnections() int64 {
 	return c.active.Load()
+}
+
+type MetricsSnapshot struct {
+	ActiveConnections int64
+	Users             []UserMetrics
+}
+
+type UserMetrics struct {
+	UID     int
+	Sent    int64
+	Recv    int64
+	Total   int64
+	Success int64
+	Fail    int64
+}
+
+func (c *Collector) MetricsSnapshot() MetricsSnapshot {
+	out := MetricsSnapshot{ActiveConnections: c.active.Load()}
+	c.mu.Lock()
+	for uid, cc := range c.byUID {
+		out.Users = append(out.Users, UserMetrics{
+			UID:     uid,
+			Sent:    cc.lifeSent.Load(),
+			Recv:    cc.lifeRecv.Load(),
+			Total:   cc.lifeTotal.Load(),
+			Success: cc.lifeSuccess.Load(),
+			Fail:    cc.lifeFail.Load(),
+		})
+	}
+	c.mu.Unlock()
+	return out
 }
 
 func (c *Collector) Run(interval time.Duration) {

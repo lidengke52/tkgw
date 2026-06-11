@@ -52,6 +52,16 @@ resourceUsageLogIntervalSec: 60
 localConfigFile: false
 
 # =========================
+# Prometheus Metrics
+# =========================
+# 是否开启 Prometheus /metrics。默认关闭；生产建议只暴露给内网或本机 agent。
+metricsEnabled: false
+# metrics 监听地址。Prometheus 不在本机时可改为 0.0.0.0，并用安全组限制来源。
+metricsHost: "127.0.0.1"
+metricsPort: 19090
+metricsPath: "/metrics"
+
+# =========================
 # 会话与缓存配置
 # =========================
 maxSessionSize: 50000

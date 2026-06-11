@@ -43,6 +43,7 @@ go build -o gateway-go ./cmd/gateway
 - [使用说明](./docs/Usage.zh-CN.md)
 - [性能调优指南](./docs/PerformanceTuning.zh-CN.md)
 - [运维手册](./docs/Operations.zh-CN.md)
+- [监控接入说明](./docs/Monitoring.zh-CN.md)
 
 ## 融合池城市定位测试页
 
