@@ -12,6 +12,9 @@ type Info struct {
 	ForwardPort string
 	ForwardUser string
 	ForwardPass string
+	Country     string
+	State       string
+	City        string
 	SupplierID  int
 	KeepTime    time.Duration
 	BindTime    time.Time

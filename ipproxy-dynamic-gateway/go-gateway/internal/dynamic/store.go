@@ -228,8 +228,10 @@ func (s *Store) BindForward(ctx *Context) bool {
 		if info, ok := s.sessions.Get(ctx.AuthUser, ctx.SessionID); ok {
 			if s.shouldUseCachedSession(snap, user, ctx, info) {
 				applySession(ctx, info)
+				s.logStickyForward(*ctx, info, true)
 				return true
 			}
+			s.logStickyCacheRejected(*ctx, info)
 			s.sessions.Delete(ctx.AuthUser, ctx.SessionID)
 		}
 		info, ok := s.allocate(snap, user, *ctx, true)
@@ -238,6 +240,7 @@ func (s *Store) BindForward(ctx *Context) bool {
 		}
 		s.sessions.Put(info)
 		applySession(ctx, info)
+		s.logStickyForward(*ctx, info, false)
 		return true
 	}
 	info, ok := s.allocate(snap, user, *ctx, false)
@@ -315,6 +318,9 @@ func (s *Store) allocate(snap Snapshot, user UserConfig, ctx Context, sticky boo
 		ForwardPort: ep.Port,
 		ForwardUser: auth[:idx],
 		ForwardPass: auth[idx+1:],
+		Country:     country,
+		State:       state,
+		City:        city,
 		SupplierID:  supplierID,
 		KeepTime:    ctx.KeepTime,
 		BindTime:    time.Now(),
@@ -389,6 +395,49 @@ func (s *Store) shouldUseCachedSession(snap Snapshot, user UserConfig, ctx *Cont
 		return true
 	}
 	return supplierID == info.SupplierID && ep.Host == info.ForwardHost && ep.Port == info.ForwardPort
+}
+
+func (s *Store) logStickyForward(ctx Context, info session.Info, cacheHit bool) {
+	if !s.cfg.LogDebug || ctx.SessionID == "" {
+		return
+	}
+	healthHealthy := true
+	if s.health != nil {
+		healthHealthy = s.health.Healthy(health.Key{SupplierID: info.SupplierID, Endpoint: info.ForwardHost + ":" + info.ForwardPort, Country: strings.ToUpper(ctx.Country)})
+	}
+	log.Printf("sticky forward authUser=%s sid=%s keepTimeSec=%.0f affinityMode=%s cacheHit=%t supplierId=%d endpoint=%s:%s healthHealthy=%t requestArea=%s/%s/%s mappedArea=%s/%s/%s forwardUser=%s",
+		ctx.AuthUser,
+		ctx.SessionID,
+		ctx.KeepTime.Seconds(),
+		s.cfg.SessionAffinityMode,
+		cacheHit,
+		info.SupplierID,
+		info.ForwardHost,
+		info.ForwardPort,
+		healthHealthy,
+		ctx.Country,
+		ctx.State,
+		ctx.City,
+		info.Country,
+		info.State,
+		info.City,
+		info.ForwardUser,
+	)
+}
+
+func (s *Store) logStickyCacheRejected(ctx Context, info session.Info) {
+	if !s.cfg.LogDebug || ctx.SessionID == "" {
+		return
+	}
+	log.Printf("sticky cache rejected authUser=%s sid=%s affinityMode=%s cachedSupplierId=%d cachedEndpoint=%s:%s cachedForwardUser=%s",
+		ctx.AuthUser,
+		ctx.SessionID,
+		s.cfg.SessionAffinityMode,
+		info.SupplierID,
+		info.ForwardHost,
+		info.ForwardPort,
+		info.ForwardUser,
+	)
 }
 
 func rendezvousPick(pool []candidate, ctx Context) candidate {

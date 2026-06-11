@@ -196,6 +196,20 @@ supplierHealthConsecutiveFailures: 3
 5. 查看是否发生供应商熔断，熔断会导致 session 切到下一个健康候选。
 6. 确认 `supplierRecoverAffectsExistingSession: false`。
 
+排查期间可临时开启：
+
+```yaml
+logDebug: true
+```
+
+带 `sid` 的请求会输出 `sticky forward` 日志，字段包括：
+
+```text
+authUser sid keepTimeSec affinityMode cacheHit supplierId endpoint healthHealthy requestArea mappedArea forwardUser
+```
+
+如果同一个 sid 多次日志里的 `supplierId/endpoint/forwardUser` 一致，但出口 IP 仍然变化，问题更可能在上游供应商是否严格尊重 session token。排查结束后建议关闭 `logDebug`，避免日志量过大。
+
 ## 白名单端口排查
 
 问题：白名单端口连不上。
