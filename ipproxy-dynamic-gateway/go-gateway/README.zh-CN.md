@@ -16,7 +16,7 @@
 - 基于原子计数器的请求数、流量统计与定时上报。
 - 兼容原 Java 版白名单 bitset 端口格式：gzip + base64。
 - 兼容原 Java 版 `Country-only-cn-private.mmdb` 客户端 IP Geo 过滤。
-- 兼容融合池 `areaMapping.csv` 国家/省/城市映射。
+- 兼容 `areaMapping.csv` 国家/省/城市映射，支持 INFATICA(16)、NETNUT(17)、liang(18)。
 - 资源使用观测日志：堆内存、goroutine、GC 次数、活跃连接数。
 - 供应商被动健康检查：按供应商、入口、国家统计失败率，自动熔断并恢复。
 - 集群友好的确定性 session 分配：支持 rendezvous hashing，无需 Redis。
@@ -89,7 +89,7 @@ Go 标准库没有 Netty 的 pipeline、write water mark、boss/worker event loo
 - 粘性 session。
 - 流量/请求统计。
 - IP Geo 过滤。
-- 融合池区域映射。
+- 地址映射：INFATICA(16)、NETNUT(17) 属于融合池，liang(18) 为 standalone 供应商但同样支持国家/省/城市映射。
 
 不需要长期维护 Java+Go 两套业务逻辑。迁移期建议先保留 Java 目录作为对照，确认 Go 版压测和线上灰度没问题后，可以把 Java 源码归档或移除。
 

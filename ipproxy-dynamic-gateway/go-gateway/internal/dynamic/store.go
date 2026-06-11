@@ -35,9 +35,22 @@ const (
 	AffinityDeterministic = "deterministic"
 )
 
-const mergePoolInfatica = 16
+const (
+	supplierInfatica = 16
+	supplierNetNut   = 17
+	supplierLiang    = 18
+)
 
-var mergePool = map[int]bool{16: true, 17: true}
+var mergePool = map[int]bool{
+	supplierInfatica: true,
+	supplierNetNut:   true,
+}
+
+var areaMappingSupported = map[int]bool{
+	supplierInfatica: true,
+	supplierNetNut:   true,
+	supplierLiang:    true,
+}
 
 type Store struct {
 	cfg      config.Config
@@ -271,7 +284,7 @@ func (s *Store) allocate(snap Snapshot, user UserConfig, ctx Context, sticky boo
 		return session.Info{}, false
 	}
 	country, state, city := ctx.Country, ctx.State, ctx.City
-	if !strings.EqualFold(country, CountryAny) && mergePool[supplierID] {
+	if !strings.EqualFold(country, CountryAny) && areaMappingSupported[supplierID] {
 		areaInfo, ok := lookupArea(snap.AreaMapping[supplierID], country, state, city)
 		if !ok {
 			return session.Info{}, false
@@ -312,8 +325,8 @@ func (s *Store) pickCandidate(snap Snapshot, user UserConfig, ctx Context, stick
 	allowed := user.AvailableSupplier
 	if sticky && ctx.KeepTime > 30*time.Minute {
 		for _, id := range user.AvailableSupplier {
-			if id == mergePoolInfatica {
-				allowed = []int{mergePoolInfatica}
+			if id == supplierInfatica {
+				allowed = []int{supplierInfatica}
 				break
 			}
 		}
@@ -799,6 +812,11 @@ func bitsetPorts(offset int, encoded string) ([]int, error) {
 }
 
 func loadAreaMappings(cfg config.Config) map[int]AreaMappingConfig {
+	mappings := map[int]AreaMappingConfig{
+		supplierInfatica: {SupplierID: supplierInfatica, Mapping: make(map[string]AreaInfo)},
+		supplierNetNut:   {SupplierID: supplierNetNut, Mapping: make(map[string]AreaInfo)},
+		supplierLiang:    {SupplierID: supplierLiang, Mapping: make(map[string]AreaInfo)},
+	}
 	path := cfg.LocalAreaMappingFile
 	if path == "" {
 		path = filepath.Join("resources", "areaMapping.csv")
@@ -806,44 +824,113 @@ func loadAreaMappings(cfg config.Config) map[int]AreaMappingConfig {
 	f, err := os.Open(path)
 	if err != nil {
 		log.Printf("area mapping file open failed path=%s err=%v", path, err)
-		return map[int]AreaMappingConfig{}
+		return mappings
 	}
 	defer f.Close()
 	rows, err := csv.NewReader(f).ReadAll()
 	if err != nil {
 		log.Printf("area mapping csv read failed: %v", err)
-		return map[int]AreaMappingConfig{}
+		return mappings
 	}
-	infatica := AreaMappingConfig{SupplierID: 16, Mapping: make(map[string]AreaInfo)}
-	netnut := AreaMappingConfig{SupplierID: 17, Mapping: make(map[string]AreaInfo)}
+	if len(rows) == 0 {
+		return mappings
+	}
+	if header, ok := areaMappingHeader(rows[0]); ok {
+		for _, row := range rows[1:] {
+			addHeaderAreaMapping(mappings, header, row)
+		}
+		return mappings
+	}
 	for _, row := range rows {
-		if len(row) != 16 || !isNumeric(row[0]) {
-			continue
-		}
+		addPositionalAreaMapping(mappings, row)
+	}
+	return mappings
+}
+
+func areaMappingHeader(row []string) (map[string]int, bool) {
+	header := make(map[string]int, len(row))
+	for i, col := range row {
+		header[normalizeAreaMappingHeader(col)] = i
+	}
+	_, hasArea := header["area"]
+	_, hasInfatica := header["infatica_area"]
+	_, hasLiang := header["liang_area"]
+	return header, hasArea && hasInfatica && hasLiang
+}
+
+func normalizeAreaMappingHeader(s string) string {
+	return strings.ToLower(strings.TrimSpace(strings.TrimPrefix(s, "\ufeff")))
+}
+
+func addHeaderAreaMapping(mappings map[int]AreaMappingConfig, header map[string]int, row []string) {
+	standardCountry := csvHeaderValue(row, header, "area")
+	standardState := csvHeaderValue(row, header, "region")
+	standardCity := csvHeaderValue(row, header, "city")
+	if standardCountry == "" {
+		return
+	}
+	addSupplierHeaderAreaMapping(mappings, supplierInfatica, row, header, standardCountry, standardState, standardCity, "infatica")
+	addSupplierHeaderAreaMapping(mappings, supplierNetNut, row, header, standardCountry, standardState, standardCity, "netnut")
+	addSupplierHeaderAreaMapping(mappings, supplierLiang, row, header, standardCountry, standardState, standardCity, "liang")
+}
+
+func addSupplierHeaderAreaMapping(mappings map[int]AreaMappingConfig, supplierID int, row []string, header map[string]int, country, state, city, prefix string) {
+	mappedCountry := csvHeaderValue(row, header, prefix+"_area")
+	mappedState := csvHeaderValue(row, header, prefix+"_region")
+	mappedCity := csvHeaderValue(row, header, prefix+"_city")
+	addSupplierAreaMapping(mappings, supplierID, country, state, city, mappedCountry, mappedState, mappedCity,
+		csvHeaderValue(row, header, prefix+"_area_support"),
+		csvHeaderValue(row, header, prefix+"_region_support"),
+		csvHeaderValue(row, header, prefix+"_city_support"),
+	)
+}
+
+func addPositionalAreaMapping(mappings map[int]AreaMappingConfig, row []string) {
+	switch {
+	case len(row) >= 22 && isNumeric(row[0]):
 		standardCountry, standardState, standardCity := row[1], row[2], row[3]
-		if row[10] == "1" {
-			addAreaMapping(&infatica, standardCountry, "", "", row[4], "", "")
-		}
-		if row[11] == "1" {
-			addAreaMapping(&infatica, standardCountry, standardState, "", row[4], row[5], "")
-		}
-		if row[12] == "1" {
-			addAreaMapping(&infatica, standardCountry, standardState, standardCity, row[4], row[5], row[6])
-		}
-		if row[13] == "1" {
-			addAreaMapping(&netnut, standardCountry, "", "", row[7], "", "")
-		}
-		if row[14] == "1" {
-			addAreaMapping(&netnut, standardCountry, standardState, "", row[7], row[8], "")
-		}
-		if row[15] == "1" {
-			addAreaMapping(&netnut, standardCountry, standardState, standardCity, row[7], row[8], row[9])
+		addSupplierAreaMapping(mappings, supplierInfatica, standardCountry, standardState, standardCity, row[4], row[5], row[6], row[13], row[14], row[15])
+		addSupplierAreaMapping(mappings, supplierNetNut, standardCountry, standardState, standardCity, row[7], row[8], row[9], row[16], row[17], row[18])
+		addSupplierAreaMapping(mappings, supplierLiang, standardCountry, standardState, standardCity, row[10], row[11], row[12], row[19], row[20], row[21])
+	case len(row) >= 21:
+		standardCountry, standardState, standardCity := row[0], row[1], row[2]
+		addSupplierAreaMapping(mappings, supplierInfatica, standardCountry, standardState, standardCity, row[3], row[4], row[5], row[6], row[7], row[8])
+		addSupplierAreaMapping(mappings, supplierNetNut, standardCountry, standardState, standardCity, row[9], row[10], row[11], row[12], row[13], row[14])
+		addSupplierAreaMapping(mappings, supplierLiang, standardCountry, standardState, standardCity, row[15], row[16], row[17], row[18], row[19], row[20])
+	default:
+		if len(row) > 0 {
+			log.Printf("area mapping row skipped unsupported columns=%d", len(row))
 		}
 	}
-	return map[int]AreaMappingConfig{
-		infatica.SupplierID: infatica,
-		netnut.SupplierID:   netnut,
+}
+
+func addSupplierAreaMapping(mappings map[int]AreaMappingConfig, supplierID int, country, state, city, mappedCountry, mappedState, mappedCity, countrySupport, stateSupport, citySupport string) {
+	cfg := mappings[supplierID]
+	if strings.TrimSpace(countrySupport) == "1" {
+		addAreaMapping(&cfg, country, "", "", mappedCountry, "", "")
 	}
+	if strings.TrimSpace(stateSupport) == "1" {
+		addAreaMapping(&cfg, country, state, "", mappedCountry, mappedState, "")
+	}
+	if strings.TrimSpace(citySupport) == "1" {
+		addAreaMapping(&cfg, country, state, city, mappedCountry, mappedState, mappedCity)
+	}
+	mappings[supplierID] = cfg
+}
+
+func csvValue(row []string, idx int) string {
+	if idx < 0 || idx >= len(row) {
+		return ""
+	}
+	return strings.TrimSpace(row[idx])
+}
+
+func csvHeaderValue(row []string, header map[string]int, name string) string {
+	idx, ok := header[name]
+	if !ok {
+		return ""
+	}
+	return csvValue(row, idx)
 }
 
 func addAreaMapping(cfg *AreaMappingConfig, country, state, city, mappedCountry, mappedState, mappedCity string) {
