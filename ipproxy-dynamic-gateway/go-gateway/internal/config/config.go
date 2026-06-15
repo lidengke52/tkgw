@@ -41,6 +41,7 @@ type Config struct {
 	ResourceUsageLogInterval          time.Duration
 	SessionExpireCheckInterval        time.Duration
 	SessionAffinityMode               string
+	SupplierWeights                   string
 	SupplierRecoverAffectsExisting    bool
 	PreferenceEndpointArea            string
 	LocalAreaMappingFile              string
@@ -85,6 +86,7 @@ func Default() Config {
 		ResourceUsageLogInterval:          60 * time.Second,
 		SessionExpireCheckInterval:        30 * time.Second,
 		SessionAffinityMode:               "cache",
+		SupplierWeights:                   "16=50,17=50",
 		SupplierRecoverAffectsExisting:    false,
 		WhiteListPortRangeStart:           20000,
 		WhiteListPortRangeEnd:             22000,
@@ -222,6 +224,7 @@ func applyValues(c *Config, v map[string]string) {
 	setString("preferenceEndpointArea", &c.PreferenceEndpointArea)
 	setString("localAreaMappingFile", &c.LocalAreaMappingFile)
 	setString("sessionAffinityMode", &c.SessionAffinityMode)
+	setString("supplierWeights", &c.SupplierWeights)
 	setInt("listenSocks5Port", &c.ListenSocks5Port)
 	setInt("listenHttpPort", &c.ListenHTTPPort)
 	setInt("metricsPort", &c.MetricsPort)

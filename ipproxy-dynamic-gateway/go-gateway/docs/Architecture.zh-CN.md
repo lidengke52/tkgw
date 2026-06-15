@@ -147,6 +147,18 @@ sessionAffinityMode: "cache"          # 本机缓存模式
 sessionAffinityMode: "deterministic" # 集群确定性模式
 ```
 
+## 供应商权重
+
+配置：
+
+```yaml
+supplierWeights: "16=50,17=50"
+```
+
+供应商权重按 supplier 维度生效，不按 gateway endpoint 数量生效。因此即使 16 有多个入口、17 只有一个入口，`16=70,17=30` 仍表示新分配请求约 70% 选择 16、30% 选择 17。
+
+未出现在配置里的供应商默认权重为 `1`。权重设置为 `0` 表示正常情况下不主动分配到该供应商；如果候选池内所有供应商权重都不可用，则会回退为等权选择，避免无候选。
+
 ## 集群确定性 session
 
 `deterministic` 模式使用 rendezvous hashing。
@@ -154,10 +166,13 @@ sessionAffinityMode: "deterministic" # 集群确定性模式
 Hash 输入：
 
 ```text
-authUser + sessionId + country + state + city + supplierId + endpoint
+供应商选择: authUser + sessionId + country + state + city + supplierId，supplierWeights 参与加权得分
+入口选择: authUser + sessionId + country + state + city + supplierId + endpoint
 ```
 
-同一套动态配置下，不同网关实例会对同一个 session 选出同一个供应商和入口。因此 DNS/LB 把请求分到不同机器时，也能保持 session 稳定，不需要 Redis。
+同一套动态配置和 `supplierWeights` 下，不同网关实例会对同一个 session 选出同一个供应商和入口。因此 DNS/LB 把请求分到不同机器时，也能保持 session 稳定，不需要 Redis。
+
+在 sticky deterministic 模式下，权重表示按 SID 数量近似分布，不保证按字节流量精确分布。已有本机缓存 session 不会因为权重变化立刻重排，通常会等 session 过期、故障切换，或缓存未命中后再按新权重分配。
 
 在该模式下，供应商模板里的 `{session}` 也会生成确定性 token，避免跨节点选择同一供应商但上游 session token 不一致。
 

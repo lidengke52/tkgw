@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"ipproxy-dynamic-gateway-go/internal/config"
 )
@@ -48,6 +49,60 @@ func TestLoadAreaMappingsPositional22WithLiang(t *testing.T) {
 	}
 	if netnutCity.Country != "in" || netnutCity.State != "dl" || netnutCity.City != "new-delhi" {
 		t.Fatalf("netnut city mapping = %+v, want in/dl/new-delhi", netnutCity)
+	}
+}
+
+func TestParseSupplierWeights(t *testing.T) {
+	weights := parseSupplierWeights("16=70, 17:30, bad, 18=nope")
+	if weights[16] != 70 {
+		t.Fatalf("weight 16 = %v, want 70", weights[16])
+	}
+	if weights[17] != 30 {
+		t.Fatalf("weight 17 = %v, want 30", weights[17])
+	}
+	if _, ok := weights[18]; ok {
+		t.Fatal("did not expect invalid supplier 18 weight")
+	}
+}
+
+func TestPickCandidateHonorsZeroWeight(t *testing.T) {
+	store := NewStore(config.Config{SupplierWeights: "16=1,17=0"})
+	snap := weightedPickSnapshot()
+	user := UserConfig{AuthUser: "u", TrafficEnable: true, AvailableSupplier: []int{16, 17}}
+	ctx := Context{AuthUser: "u", Country: "US", SessionID: "abc", KeepTime: 10 * time.Minute}
+
+	for i := 0; i < 20; i++ {
+		supplierID, _, ok := store.pickCandidate(snap, user, ctx, true)
+		if !ok {
+			t.Fatal("expected candidate")
+		}
+		if supplierID != supplierInfatica {
+			t.Fatalf("supplier = %d, want %d", supplierID, supplierInfatica)
+		}
+	}
+}
+
+func TestPickCandidateLongStickyKeeptimeStillPrefersInfatica(t *testing.T) {
+	store := NewStore(config.Config{SupplierWeights: "16=1,17=100"})
+	snap := weightedPickSnapshot()
+	user := UserConfig{AuthUser: "u", TrafficEnable: true, AvailableSupplier: []int{16, 17}}
+	ctx := Context{AuthUser: "u", Country: "US", SessionID: "abc", KeepTime: 31 * time.Minute}
+
+	supplierID, _, ok := store.pickCandidate(snap, user, ctx, true)
+	if !ok {
+		t.Fatal("expected candidate")
+	}
+	if supplierID != supplierInfatica {
+		t.Fatalf("supplier = %d, want %d", supplierID, supplierInfatica)
+	}
+}
+
+func weightedPickSnapshot() Snapshot {
+	return Snapshot{
+		Suppliers: map[int]SupplierConfig{
+			supplierInfatica: {SupplierID: supplierInfatica, AvailableGateway: []Endpoint{{Host: "gw16a", Port: "29999"}, {Host: "gw16b", Port: "29999"}}},
+			supplierNetNut:   {SupplierID: supplierNetNut, AvailableGateway: []Endpoint{{Host: "gw17", Port: "29999"}}},
+		},
 	}
 }
 

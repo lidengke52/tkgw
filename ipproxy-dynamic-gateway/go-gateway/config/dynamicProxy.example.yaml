@@ -71,6 +71,10 @@ sessionExpireCheckInterval: 30
 sessionAffinityMode: "deterministic"
 # false = 供应商恢复后不主动重排已存在 session；旧 session 等过期或失败后自然变化。
 supplierRecoverAffectsExistingSession: false
+# 供应商分配权重，按 supplier 维度生效；未配置的供应商默认权重为 1。
+# 例如 16=70,17=30 表示新分配流量约 70% 走 16，30% 走 17。
+# sticky deterministic 模式下表示按 SID 数量近似 70/30；已有本机缓存 session 不会立刻重排。
+supplierWeights: "16=50,17=50"
 
 # =========================
 # 白名单端口范围配置

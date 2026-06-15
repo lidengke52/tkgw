@@ -197,6 +197,22 @@ trafficReportSpoolFile: "traffic-report-spool.jsonl"
 
 正常收到 SIGTERM/SIGINT 时，网关会立即 flush 当前内存统计。
 
+## 供应商权重
+
+配置：
+
+```yaml
+supplierWeights: "16=50,17=50"
+```
+
+该配置控制新分配请求在供应商池之间的比例。比如：
+
+```yaml
+supplierWeights: "16=70,17=30"
+```
+
+表示 16 约 70%，17 约 30%。sticky deterministic 模式下，该比例按 SID 数量近似生效；已有缓存 session 仍按原绑定走到过期或故障切换。
+
 ## 本地模拟配置
 
 开发调试可设置：

@@ -11,6 +11,7 @@ import (
 	"hash/fnv"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -60,6 +61,7 @@ type Store struct {
 	snapshot atomic.Value
 	userMu   sync.Mutex
 	userConn map[string]int
+	weights  map[int]float64
 }
 
 type Context struct {
@@ -84,6 +86,11 @@ type candidate struct {
 	endpoint   Endpoint
 }
 
+type supplierCandidate struct {
+	supplierID int
+	endpoints  []Endpoint
+}
+
 func NewStore(cfg config.Config) *Store {
 	s := &Store{
 		cfg:      cfg,
@@ -98,6 +105,7 @@ func NewStore(cfg config.Config) *Store {
 			Window:               cfg.SupplierHealthWindow,
 		}),
 		userConn: make(map[string]int),
+		weights:  parseSupplierWeights(cfg.SupplierWeights),
 	}
 	s.snapshot.Store(Snapshot{
 		UsersByName: map[string]UserConfig{},
@@ -337,35 +345,36 @@ func (s *Store) pickCandidate(snap Snapshot, user UserConfig, ctx Context, stick
 			}
 		}
 	}
-	var all []candidate
-	var healthy []candidate
+	all := make(map[int][]Endpoint)
+	healthy := make(map[int][]Endpoint)
 	for _, supplierID := range allowed {
 		supplier, ok := snap.Suppliers[supplierID]
 		if !ok {
 			continue
 		}
 		for _, ep := range supplier.AvailableGateway {
-			c := candidate{supplierID: supplierID, endpoint: ep}
-			all = append(all, c)
+			all[supplierID] = append(all[supplierID], ep)
 			key := health.Key{SupplierID: supplierID, Endpoint: ep.Host + ":" + ep.Port, Country: strings.ToUpper(ctx.Country)}
 			if s.health == nil || s.health.Healthy(key) {
-				healthy = append(healthy, c)
+				healthy[supplierID] = append(healthy[supplierID], ep)
 			}
 		}
 	}
-	pool := healthy
+	pool := supplierCandidates(healthy)
 	if len(pool) == 0 {
-		pool = all
+		pool = supplierCandidates(all)
 	}
 	if len(pool) == 0 {
 		return 0, Endpoint{}, false
 	}
 	if sticky && s.deterministicAffinity() {
-		picked := rendezvousPick(pool, ctx)
-		return picked.supplierID, picked.endpoint, true
+		picked := weightedRendezvousPickSupplier(pool, ctx, s.weights)
+		ep := rendezvousPickEndpoint(picked.supplierID, picked.endpoints, ctx)
+		return picked.supplierID, ep, true
 	}
-	picked := pool[rand.Intn(len(pool))]
-	return picked.supplierID, picked.endpoint, true
+	picked := weightedRandomPickSupplier(pool, s.weights)
+	ep := picked.endpoints[rand.Intn(len(picked.endpoints))]
+	return picked.supplierID, ep, true
 }
 
 func (s *Store) deterministicAffinity() bool {
@@ -452,6 +461,141 @@ func rendezvousPick(pool []candidate, ctx Context) candidate {
 	return best
 }
 
+func supplierCandidates(grouped map[int][]Endpoint) []supplierCandidate {
+	out := make([]supplierCandidate, 0, len(grouped))
+	for supplierID, endpoints := range grouped {
+		if len(endpoints) == 0 {
+			continue
+		}
+		out = append(out, supplierCandidate{supplierID: supplierID, endpoints: endpoints})
+	}
+	return out
+}
+
+func weightedRandomPickSupplier(pool []supplierCandidate, weights map[int]float64) supplierCandidate {
+	total := 0.0
+	for _, c := range pool {
+		total += activeSupplierWeight(c.supplierID, weights)
+	}
+	if total <= 0 {
+		return pool[rand.Intn(len(pool))]
+	}
+	target := rand.Float64() * total
+	for _, c := range pool {
+		weight := activeSupplierWeight(c.supplierID, weights)
+		if weight <= 0 {
+			continue
+		}
+		target -= weight
+		if target <= 0 {
+			return c
+		}
+	}
+	return pool[len(pool)-1]
+}
+
+func weightedRendezvousPickSupplier(pool []supplierCandidate, ctx Context, weights map[int]float64) supplierCandidate {
+	if !hasPositiveSupplierWeight(pool, weights) {
+		return rendezvousPickSupplier(pool, ctx)
+	}
+	best := pool[0]
+	bestScore := weightedRendezvousSupplierScore(ctx, best.supplierID, weights)
+	for _, c := range pool[1:] {
+		score := weightedRendezvousSupplierScore(ctx, c.supplierID, weights)
+		if score > bestScore {
+			best, bestScore = c, score
+		}
+	}
+	return best
+}
+
+func rendezvousPickSupplier(pool []supplierCandidate, ctx Context) supplierCandidate {
+	best := pool[0]
+	bestScore := rendezvousSupplierScore(ctx, best.supplierID)
+	for _, c := range pool[1:] {
+		score := rendezvousSupplierScore(ctx, c.supplierID)
+		if score > bestScore {
+			best, bestScore = c, score
+		}
+	}
+	return best
+}
+
+func rendezvousSupplierScore(ctx Context, supplierID int) uint64 {
+	h := fnv.New64a()
+	writeHashPart(h, ctx.AuthUser)
+	writeHashPart(h, ctx.SessionID)
+	writeHashPart(h, strings.ToUpper(ctx.Country))
+	writeHashPart(h, strings.ToUpper(ctx.State))
+	writeHashPart(h, strings.ToUpper(ctx.City))
+	writeHashPart(h, strconv.Itoa(supplierID))
+	return h.Sum64()
+}
+
+func weightedRendezvousSupplierScore(ctx Context, supplierID int, weights map[int]float64) float64 {
+	weight := activeSupplierWeight(supplierID, weights)
+	if weight <= 0 {
+		return math.Inf(-1)
+	}
+	h := fnv.New64a()
+	writeHashPart(h, ctx.AuthUser)
+	writeHashPart(h, ctx.SessionID)
+	writeHashPart(h, strings.ToUpper(ctx.Country))
+	writeHashPart(h, strings.ToUpper(ctx.State))
+	writeHashPart(h, strings.ToUpper(ctx.City))
+	writeHashPart(h, strconv.Itoa(supplierID))
+	u := hashUnitFloat64(h.Sum64())
+	return math.Log(weight) - math.Log(-math.Log(u))
+}
+
+func hasPositiveSupplierWeight(pool []supplierCandidate, weights map[int]float64) bool {
+	for _, c := range pool {
+		if activeSupplierWeight(c.supplierID, weights) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func activeSupplierWeight(supplierID int, weights map[int]float64) float64 {
+	weight := supplierWeight(supplierID, weights)
+	if weight < 0 {
+		return 0
+	}
+	return weight
+}
+
+func supplierWeight(supplierID int, weights map[int]float64) float64 {
+	if len(weights) == 0 {
+		return 1
+	}
+	weight, ok := weights[supplierID]
+	if !ok {
+		return 1
+	}
+	return weight
+}
+
+func hashUnitFloat64(sum uint64) float64 {
+	const maxUint64Float = float64(^uint64(0))
+	u := (float64(sum) + 1) / (maxUint64Float + 1)
+	if u <= 0 {
+		return math.SmallestNonzeroFloat64
+	}
+	if u >= 1 {
+		return math.Nextafter(1, 0)
+	}
+	return u
+}
+
+func rendezvousPickEndpoint(supplierID int, endpoints []Endpoint, ctx Context) Endpoint {
+	pool := make([]candidate, 0, len(endpoints))
+	for _, ep := range endpoints {
+		pool = append(pool, candidate{supplierID: supplierID, endpoint: ep})
+	}
+	return rendezvousPick(pool, ctx).endpoint
+}
+
 func rendezvousScore(ctx Context, c candidate) uint64 {
 	h := fnv.New64a()
 	writeHashPart(h, ctx.AuthUser)
@@ -463,6 +607,33 @@ func rendezvousScore(ctx Context, c candidate) uint64 {
 	writeHashPart(h, c.endpoint.Host)
 	writeHashPart(h, c.endpoint.Port)
 	return h.Sum64()
+}
+
+func parseSupplierWeights(raw string) map[int]float64 {
+	out := make(map[int]float64)
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		key, value, ok := strings.Cut(part, "=")
+		if !ok {
+			key, value, ok = strings.Cut(part, ":")
+		}
+		if !ok {
+			continue
+		}
+		supplierID, err := strconv.Atoi(strings.TrimSpace(key))
+		if err != nil {
+			continue
+		}
+		weight, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if err != nil || math.IsNaN(weight) || math.IsInf(weight, 0) {
+			continue
+		}
+		out[supplierID] = weight
+	}
+	return out
 }
 
 func sessionToken(ctx Context, supplierID int, sticky bool, deterministic bool) string {

@@ -136,6 +136,27 @@ supplierRecoverAffectsExistingSession: false
 sessionAffinityMode: "cache"
 ```
 
+## 供应商权重
+
+默认：
+
+```yaml
+supplierWeights: "16=50,17=50"
+```
+
+需要融合池按 70/30 分流时：
+
+```yaml
+supplierWeights: "16=70,17=30"
+```
+
+调优建议：
+
+- 集群内所有网关必须使用同一份 `supplierWeights`，否则同一个 SID 可能在不同机器算出不同供应商。
+- 健康检查会先过滤不健康入口，再对剩余供应商做权重分配；某个供应商熔断后，流量会自动落到其他健康供应商。
+- `keeptime` 大于 30 分钟且用户可用供应商包含 16 时，仍保留原有优先 16 的逻辑，不受权重影响。
+- sticky 模式下权重按新 SID 数量近似分布，不代表实时带宽或字节数精确比例。
+
 ## 供应商健康检查
 
 ```yaml
