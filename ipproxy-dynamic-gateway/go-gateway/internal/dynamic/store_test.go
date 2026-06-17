@@ -32,6 +32,26 @@ func TestLoadAreaMappingsHeaderWithLiang(t *testing.T) {
 	}
 }
 
+func TestLoadAreaMappingsSkipsBlankSupportedLiangValues(t *testing.T) {
+	path := writeAreaMappingCSV(t, "\ufeffarea,region,city,infatica_area,infatica_region,infatica_city,infatica_area_support,infatica_region_support,infatica_city_support,netnut_area,netnut_region,netnut_city,netnut_area_support,netnut_region_support,netnut_city_support,liang_area,liang_region,liang_city,liang_area_support,liang_region_support,liang_city_support\nIN,Maharashtra,Mumbai,IN,Maharashtra,Mumbai,1,1,1,IN,Maharashtra,Mumbai,1,1,1,IN,MH,mumbai,1,1,1\nIN,Delhi,Hashtsal,IN,,,1,0,0,IN,Delhi,Hashtsal,1,1,1,,,,1,0,0\n")
+	mappings := loadAreaMappings(config.Config{LocalAreaMappingFile: path})
+
+	liangCountry, ok := lookupArea(mappings[supplierLiang], "IN", "", "")
+	if !ok {
+		t.Fatal("expected liang country mapping")
+	}
+	if liangCountry.Country != "IN" {
+		t.Fatalf("liang country = %q, want IN", liangCountry.Country)
+	}
+	liangCity, ok := lookupArea(mappings[supplierLiang], "IN", "Maharashtra", "Mumbai")
+	if !ok {
+		t.Fatal("expected liang city mapping")
+	}
+	if liangCity.Country != "IN" || liangCity.State != "MH" || liangCity.City != "mumbai" {
+		t.Fatalf("liang city mapping = %+v, want IN/MH/mumbai", liangCity)
+	}
+}
+
 func TestLoadAreaMappingsPositional22WithLiang(t *testing.T) {
 	path := writeAreaMappingCSV(t, "1,IN,Delhi,New Delhi,IN,Delhi,New Delhi,in,dl,new-delhi,IN,DL,NDEL,1,1,1,1,1,1,1,1,1\n")
 	mappings := loadAreaMappings(config.Config{LocalAreaMappingFile: path})

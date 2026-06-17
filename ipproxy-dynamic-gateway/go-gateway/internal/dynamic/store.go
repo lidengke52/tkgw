@@ -1126,13 +1126,13 @@ func addPositionalAreaMapping(mappings map[int]AreaMappingConfig, row []string) 
 
 func addSupplierAreaMapping(mappings map[int]AreaMappingConfig, supplierID int, country, state, city, mappedCountry, mappedState, mappedCity, countrySupport, stateSupport, citySupport string) {
 	cfg := mappings[supplierID]
-	if strings.TrimSpace(countrySupport) == "1" {
+	if strings.TrimSpace(countrySupport) == "1" && mappedCountry != "" {
 		addAreaMapping(&cfg, country, "", "", mappedCountry, "", "")
 	}
-	if strings.TrimSpace(stateSupport) == "1" {
+	if strings.TrimSpace(stateSupport) == "1" && mappedCountry != "" && mappedState != "" {
 		addAreaMapping(&cfg, country, state, "", mappedCountry, mappedState, "")
 	}
-	if strings.TrimSpace(citySupport) == "1" {
+	if strings.TrimSpace(citySupport) == "1" && mappedCountry != "" && mappedState != "" && mappedCity != "" {
 		addAreaMapping(&cfg, country, state, city, mappedCountry, mappedState, mappedCity)
 	}
 	mappings[supplierID] = cfg
