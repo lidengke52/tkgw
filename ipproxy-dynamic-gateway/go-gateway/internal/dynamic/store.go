@@ -230,7 +230,7 @@ func (s *Store) BindForward(ctx *Context) bool {
 		return false
 	}
 	if ctx.SessionID != "" {
-		if len(ctx.SessionID) >= 20 || !isNumeric(ctx.SessionID) || ctx.KeepTime <= 0 {
+		if !isSafeSessionID(ctx.SessionID) || ctx.KeepTime <= 0 {
 			return false
 		}
 		if info, ok := s.sessions.Get(ctx.AuthUser, ctx.SessionID); ok {
@@ -783,6 +783,28 @@ func preferEndpoints(in []Endpoint, area string) []Endpoint {
 		return in
 	}
 	return out
+}
+
+func isSafeSessionID(s string) bool {
+	if s == "" || len(s) > 64 {
+		return false
+	}
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
+		if r == '_' || r == '.' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func isNumeric(s string) bool {

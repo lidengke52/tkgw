@@ -85,6 +85,26 @@ func TestParseSupplierWeights(t *testing.T) {
 	}
 }
 
+func TestIsSafeSessionID(t *testing.T) {
+	valid := []string{"12345678", "abc123XYZ", "sid_001", "sid.001"}
+	for _, sid := range valid {
+		if !isSafeSessionID(sid) {
+			t.Fatalf("sid %q should be valid", sid)
+		}
+	}
+
+	invalid := []string{"", "sid-001", "sid/001", "会话"}
+	for _, sid := range invalid {
+		if isSafeSessionID(sid) {
+			t.Fatalf("sid %q should be invalid", sid)
+		}
+	}
+
+	if isSafeSessionID("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklm") {
+		t.Fatal("overlong sid should be invalid")
+	}
+}
+
 func TestPickCandidateHonorsZeroWeight(t *testing.T) {
 	store := NewStore(config.Config{SupplierWeights: "16=1,17=0"})
 	snap := weightedPickSnapshot()
